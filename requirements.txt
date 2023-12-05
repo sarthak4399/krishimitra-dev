@@ -1,4 +1,4 @@
 flask
-openai
 twilio
 pyngrok
+dotenv

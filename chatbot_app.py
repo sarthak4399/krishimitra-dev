@@ -31,12 +31,16 @@ def send_msg(msg, phn):
         'Authorization': f'Bearer {PAGE_ACCESS_TOKEN}',
     }
     json_data = {
-        'messaging_product': 'whatsapp',
 
-        'to': phn,
-        'type': 'text',
-        "text": {
-            "body": msg
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": phn,
+        "type": "template",
+        "template": {
+            "name": "language",
+            "language": {
+                "code": "en_GB"
+            }
         }
     }
     response = requests.post(
@@ -137,7 +141,6 @@ def webhook():
                             phn = "+" + validate_user(wa_id)
                             if not wa_id:
                                 return jsonify({'status': 'error', 'message': 'wa_id not found'})
-
                         if messages:
                             sender_id = messages[0].get('from')
                             message_body = messages[0]['text']['body'].lower() if messages and messages[0].get(
@@ -148,22 +151,17 @@ def webhook():
                                 handle_language_selection(message_body, wa_id)
                             elif 'role_selected' not in user_preferences.get(wa_id, {}):
                                 handle_role_selection(message_body, wa_id)
-                            else:
-                                send_msg(
-                                    'Sorry, I did not understand your message.', wa_id)
+                            # elif 'document_selected' not in user_preferences.get(wa_id, {}):
+                            #     handle_document_selection(message_body, wa_id)
+                        #     else:
+                        #         send_msg(
+                        #             'Sorry, I did not understand your message.', wa_id)
+                        # elif 'attachments' in message_value:
+                        #     attachments = message_value['attachments']
+                        #     if attachments and attachments[0].get('type') == 'image':
+                        #         send_msg(
+                        #             'Thank you for uploading the document. We will get back to you soon.', wa_id)
 
-                            if 'document_selected' not in user_preferences.get(wa_id, {}):
-                                handle_document_selection(message_body, wa_id)
-                            else:
-                                send_msg(
-                                    'Sorry, I did not understand your message.', wa_id)
-                            if message_body == '1':
-                                send_msg(
-                                    'Please upload the file.', wa_id)
-                                filename = handle_file_upload(request, wa_id)
-                                print("Filename:", filename)
-                                send_msg(
-                                    f'File uploaded successfully. Filename: {filename}', wa_id)
                             else:
                                 send_msg(
                                     'Sorry, I did not understand your message.', wa_id)

@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 VERIFY_TOKEN = 'KMFAMILY'
 
-PAGE_ACCESS_TOKEN = 'EAAJztZAX6JRwBOzahmCOMMKZCdZCVK9eZBv6Ybgu0PhpatU7ZAO7yT5dXJwZAKXkv4iOC5ZBL58TkPc7ey2umnJLfQUdZCaWRaoBLGgoZA5d0xpumRRR3Cu3RWPT9PeIGWysbFCj69gYCBHOcylXTMCHIjpAPZBY5NrpeBkgxjTj0ZB9F5JFhux11H4zmqdT2XZBEkkd5mwv9KiHVqMvUfZCH7au3itBPkndGSHaKPtAZD'
+PAGE_ACCESS_TOKEN = 'EAAJztZAX6JRwBOxz53LXIETh9ngdXPfV7RPVnOT8BWvCc9QQJS0cco5n0jZAPk00UKOSVLAjYBj4jm7LjqnQWUxVYxNhQe2gduJ5SA9nFIyRDnbBsKAjmHegAB3wo7kJPiKnbTUlArakWnCIOeAvbzQYFjeQxr2ZBfhyzs6emxqKFl7ZB6mZAoARm9A0mi6y1lXpJekVkaVnwKeDDZBWAj6SLjFjz8Row0O0jg'
 user_preferences = {}
 
 
@@ -31,16 +31,12 @@ def send_msg(msg, phn):
         'Authorization': f'Bearer {PAGE_ACCESS_TOKEN}',
     }
     json_data = {
+        'messaging_product': 'whatsapp',
 
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": phn,
-        "type": "template",
-        "template": {
-            "name": "language",
-            "language": {
-                "code": "en_GB"
-            }
+        'to': phn,
+        'type': 'text',
+        "text": {
+            "body": msg
         }
     }
     response = requests.post(
@@ -81,14 +77,16 @@ def handle_role_selection(message_body, wa_id):
     if message_body in ['1', '2']:
         roles = ['Farmer', 'Dealer']
         selected_role = roles[int(message_body) - 1]
-        user_preferences[wa_id]['role_selected'] = selected_role
+        user_preferences[wa_id] = {'role_selected': selected_role}
+
+        # Simplify the code by removing redundant conditions
+        send_msg(
+            f'You have selected the role: {selected_role}. Please provide your Aadhar Card and Satbara pdf.' if selected_role == 'Farmer' else
+            f'You have selected the role: {selected_role}. Please provide your License number and Aadhar details.', wa_id)
 
         if selected_role == 'Farmer':
-            send_msg(
-                'You have selected the role: Farmer. Please provide your Aadhar Card and Satbara pdf.', wa_id)
-        elif selected_role == 'Dealer':
-            send_msg(
-                'You have selected the role: Dealer. Please provide your License number and Aadhar details.', wa_id)
+            send_msg('document_options', wa_id)
+
     else:
         send_msg('Sorry, I did not understand your role selection. Please select a valid option: 1. Farmer, 2. Dealer', wa_id)
 
@@ -141,6 +139,7 @@ def webhook():
                             phn = "+" + validate_user(wa_id)
                             if not wa_id:
                                 return jsonify({'status': 'error', 'message': 'wa_id not found'})
+
                         if messages:
                             sender_id = messages[0].get('from')
                             message_body = messages[0]['text']['body'].lower() if messages and messages[0].get(
@@ -151,17 +150,6 @@ def webhook():
                                 handle_language_selection(message_body, wa_id)
                             elif 'role_selected' not in user_preferences.get(wa_id, {}):
                                 handle_role_selection(message_body, wa_id)
-                            # elif 'document_selected' not in user_preferences.get(wa_id, {}):
-                            #     handle_document_selection(message_body, wa_id)
-                        #     else:
-                        #         send_msg(
-                        #             'Sorry, I did not understand your message.', wa_id)
-                        # elif 'attachments' in message_value:
-                        #     attachments = message_value['attachments']
-                        #     if attachments and attachments[0].get('type') == 'image':
-                        #         send_msg(
-                        #             'Thank you for uploading the document. We will get back to you soon.', wa_id)
-
                             else:
                                 send_msg(
                                     'Sorry, I did not understand your message.', wa_id)

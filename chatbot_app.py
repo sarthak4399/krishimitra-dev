@@ -83,14 +83,14 @@ def get_image(media_url):
         with open(file_path, 'wb') as f:
             f.write(response.content)
         print(f"Image downloaded and saved to: {file_path}")
-        upload_image(response.content)
+        # upload_image(response.content)
     else:
         print(f"Failed to download image. Status code: {response.status_code}")
 
 
 def upload_image(content):
     response = requests.post(
-        f'http://192.168.29.161:60000/upload', files={'photo': content})
+        f'/upload', files={'photo': content})
     print(response.json())
     pass
 

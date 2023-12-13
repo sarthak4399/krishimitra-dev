@@ -83,12 +83,15 @@ def get_image(media_url):
         with open(file_path, 'wb') as f:
             f.write(response.content)
         print(f"Image downloaded and saved to: {file_path}")
+        upload_image(response.content)
     else:
         print(f"Failed to download image. Status code: {response.status_code}")
 
 
-def upload_image():
-
+def upload_image(content):
+    response = requests.post(
+        f'http://192.168.29.161:60000/upload', files={'photo': content})
+    print(response.json())
     pass
 
 
@@ -97,9 +100,6 @@ def handle_role_selection(message_body, wa_id):
         roles = ['Farmer', 'Dealer']
         selected_role = roles[int(message_body) - 1]
         user_preferences[wa_id] = {'role_selected': selected_role}
-        send_msg(
-            f'You have selected the role: {selected_role}. Please provide your Aadhar Card and Satbara pdf.' if selected_role == 'Farmer' else
-            f'You have selected the role: {selected_role}. Please provide your License number and Aadhar details.', wa_id)
         send_msg(
             'Please upload your Aadhar Card and Satbara pdf.' if selected_role == 'Farmer' else
             'Please upload your License number and Aadhar details.', wa_id)
@@ -123,31 +123,34 @@ def webhook():
                 if changes:
                     message_value = changes[0].get('value', {})
                     print("Message Value:", message_value)
-
-                    media_id = message_value['messages'][0]['image']['id']
-                    contacts = message_value.get('contacts', [])
-                    # print("media _id ", media_id)
-                    if media_id is not None:
-                        genrate_media_url(media_id)
-                        send_msg("Image uploaded successfully",
-                                 contacts[0].get('wa_id'))
-                    if message_value:
-                        messages = message_value.get('messages', [])
-                        if contacts:
-                            wa_id = contacts[0].get('wa_id')
-                            phn = "+" + validate_user(wa_id)
-                            if not wa_id:
-                                return jsonify({'status': 'error', 'message': 'wa_id not found'})
-                        if messages:
-                            sender_id = messages[0].get('from')
-                            message_body = messages[0]['text']['body'].lower() if messages and messages[0].get(
-                                'text') and 'body' in messages[0]['text'] else None
-                            print("Message Body:", message_body)
-                            print("Type of message_body:", type(message_body))
-                            if 'language_selected' not in user_preferences.get(wa_id, {}):
-                                handle_language_selection(message_body, wa_id)
-                            elif 'role_selected' not in user_preferences.get(wa_id, {}):
-                                handle_role_selection(message_body, wa_id)
+                    if 'messages' in message_value:
+                        for message in message_value['messages']:
+                            if 'image' in message:
+                                media_id = message['image']['id']
+                                contacts = message_value.get('contacts', [])
+                                if media_id is not None and contacts:
+                                    genrate_media_url(media_id)
+                                    send_msg("Image uploaded successfully ✅\nPlease wait while we process your documents.\nSee you shortly! ⏳",
+                                             contacts[0].get('wa_id'))
+                            elif 'text' in message:
+                                contacts = message_value.get('contacts', [])
+                                if contacts:
+                                    wa_id = contacts[0].get('wa_id')
+                                    phn = "+" + validate_user(wa_id)
+                                    if not wa_id:
+                                        return jsonify({'status': 'error', 'message': 'wa_id not found'})
+                                    message_body = message['text']['body'].lower(
+                                    )
+                                    print("Text Message Body:", message_body)
+                                    # Add your logic for handling text messages
+                                    if 'language_selected' not in user_preferences.get(wa_id, {}):
+                                        handle_language_selection(
+                                            message_body, wa_id)
+                                    elif 'role_selected' not in user_preferences.get(wa_id, {}):
+                                        handle_role_selection(
+                                            message_body, wa_id)
+                            else:
+                                print("Unsupported message type")
 
         except Exception as e:
             print(f"Error: {e}")

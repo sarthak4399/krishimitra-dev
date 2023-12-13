@@ -7,8 +7,9 @@ app = Flask(__name__)
 
 VERIFY_TOKEN = 'KMFAMILY'
 
-PAGE_ACCESS_TOKEN = 'EAAJztZAX6JRwBOxz53LXIETh9ngdXPfV7RPVnOT8BWvCc9QQJS0cco5n0jZAPk00UKOSVLAjYBj4jm7LjqnQWUxVYxNhQe2gduJ5SA9nFIyRDnbBsKAjmHegAB3wo7kJPiKnbTUlArakWnCIOeAvbzQYFjeQxr2ZBfhyzs6emxqKFl7ZB6mZAoARm9A0mi6y1lXpJekVkaVnwKeDDZBWAj6SLjFjz8Row0O0jg'
+PAGE_ACCESS_TOKEN = 'EAAJztZAX6JRwBOZBG4GU1i8ux73VgL9ZBeorL1NmGu2yzVwIUDc1gH1pr5TMcP6qHuqnPajMXjAAcK19ewiLku9Sa5nuu7i35En2VvaonSAOEMuLmj3DzbaBB7ts0a62fJg0QUKbjDDHZBCuDpPrKGQZAcAqbcxPO2xmTyJNYG7r6IFCiWMHlSQcEldAWSMI5SEo36ZANpVfvRhatJ0748VGNVZAfP1A1wPLx4ZD'
 user_preferences = {}
+ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
 
 
 @app.route('/')
@@ -58,19 +59,37 @@ def handle_language_selection(message_body, wa_id):
             'Sorry, I did not understand your message. Please select a valid option.', wa_id)
 
 
-def handle_file_upload(request, wa_id):
-    if 'file' not in request.files:
-        return jsonify({'status': 'error', 'message': 'No file part'})
+def genrate_media_url(media_id):
+    print("Media ID:", media_id)
+    headers = {
+        'Authorization': f'Bearer {PAGE_ACCESS_TOKEN}',
+    }
+    responce = requests.get(
+        f'https://graph.facebook.com/v13.0/{media_id}?phone_number_id=135179146337629', headers=headers)
+    media_url = responce.json()['url']
+    get_image(media_url)
+    return media_url
 
-    file = request.files['file']
 
-    if file.filename == '':
-        return jsonify({'status': 'error', 'message': 'No selected file'})
+def get_image(media_url):
+    headers = {
+        'Authorization': f'Bearer {PAGE_ACCESS_TOKEN}',
+    }
+    response = requests.get(media_url, headers=headers)
+    if response.status_code == 200:
+        content_type = response.headers.get('content-type')
+        file_extension = content_type.split('/')[-1]
+        file_path = f'image.{file_extension}'
+        with open(file_path, 'wb') as f:
+            f.write(response.content)
+        print(f"Image downloaded and saved to: {file_path}")
+    else:
+        print(f"Failed to download image. Status code: {response.status_code}")
 
-    if file:
-        filename = os.path.join('uploads', f'{wa_id}_{file.filename}')
-        file.save(filename)
-        return filename
+
+def upload_image():
+
+    pass
 
 
 def handle_role_selection(message_body, wa_id):
@@ -78,43 +97,15 @@ def handle_role_selection(message_body, wa_id):
         roles = ['Farmer', 'Dealer']
         selected_role = roles[int(message_body) - 1]
         user_preferences[wa_id] = {'role_selected': selected_role}
-
-        # Simplify the code by removing redundant conditions
         send_msg(
             f'You have selected the role: {selected_role}. Please provide your Aadhar Card and Satbara pdf.' if selected_role == 'Farmer' else
             f'You have selected the role: {selected_role}. Please provide your License number and Aadhar details.', wa_id)
-
-        if selected_role == 'Farmer':
-            send_msg('document_options', wa_id)
-
+        send_msg(
+            'Please upload your Aadhar Card and Satbara pdf.' if selected_role == 'Farmer' else
+            'Please upload your License number and Aadhar details.', wa_id)
+        # upload_image()
     else:
         send_msg('Sorry, I did not understand your role selection. Please select a valid option: 1. Farmer, 2. Dealer', wa_id)
-
-
-def handle_document_selection(message_body, wa_id):
-    if 'role_selected' in user_preferences.get(wa_id, {}):
-        selected_role = user_preferences[wa_id]['role_selected']
-        if selected_role == 'Farmer' and message_body in ['1', '2']:
-            document_options = ['Aadhar', 'Satbara']
-            selected_document = document_options[int(message_body) - 1]
-            user_preferences[wa_id]['document_selected'] = selected_document
-            send_msg(
-                f'You have selected the document: {selected_document}. Now, please upload the {selected_document} file.', wa_id)
-        elif selected_role == 'Dealer' and message_body in ['1', '2']:
-            document_options = ['License', 'Aadhar']
-            selected_document = document_options[int(message_body) - 1]
-            user_preferences[wa_id]['document_selected'] = selected_document
-            send_msg(
-                f'You have selected the document: {selected_document}. Now, please upload the {selected_document} file.', wa_id)
-        else:
-            send_msg('Sorry, I did not understand your document selection. Please select a valid option: 1. Aadhar, 2. Satbara (for Farmer) or 1. License, 2. Aadhar (for Dealer)', wa_id)
-    else:
-        send_msg('Sorry, I cannot process the document selection without a selected role. Please select a role first.', wa_id)
-
-
-def handdle_select_menu():
-
-    pass
 
 
 @app.route('/webhook', methods=['GET', 'POST'])
@@ -131,7 +122,15 @@ def webhook():
                 changes = res['entry'][0].get('changes', [])
                 if changes:
                     message_value = changes[0].get('value', {})
+                    print("Message Value:", message_value)
+
+                    media_id = message_value['messages'][0]['image']['id']
                     contacts = message_value.get('contacts', [])
+                    # print("media _id ", media_id)
+                    if media_id is not None:
+                        genrate_media_url(media_id)
+                        send_msg("Image uploaded successfully",
+                                 contacts[0].get('wa_id'))
                     if message_value:
                         messages = message_value.get('messages', [])
                         if contacts:
@@ -139,7 +138,6 @@ def webhook():
                             phn = "+" + validate_user(wa_id)
                             if not wa_id:
                                 return jsonify({'status': 'error', 'message': 'wa_id not found'})
-
                         if messages:
                             sender_id = messages[0].get('from')
                             message_body = messages[0]['text']['body'].lower() if messages and messages[0].get(
@@ -150,9 +148,6 @@ def webhook():
                                 handle_language_selection(message_body, wa_id)
                             elif 'role_selected' not in user_preferences.get(wa_id, {}):
                                 handle_role_selection(message_body, wa_id)
-                            else:
-                                send_msg(
-                                    'Sorry, I did not understand your message.', wa_id)
 
         except Exception as e:
             print(f"Error: {e}")

@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 VERIFY_TOKEN = 'KMFAMILY'
 
-PAGE_ACCESS_TOKEN = 'EAAJztZAX6JRwBOZBG4GU1i8ux73VgL9ZBeorL1NmGu2yzVwIUDc1gH1pr5TMcP6qHuqnPajMXjAAcK19ewiLku9Sa5nuu7i35En2VvaonSAOEMuLmj3DzbaBB7ts0a62fJg0QUKbjDDHZBCuDpPrKGQZAcAqbcxPO2xmTyJNYG7r6IFCiWMHlSQcEldAWSMI5SEo36ZANpVfvRhatJ0748VGNVZAfP1A1wPLx4ZD'
+PAGE_ACCESS_TOKEN = 'EAAJztZAX6JRwBO4FubSHEC2tRjxNbC6O4eBiM4MD6D5oMpvZC0RGdQsrAWIa0SNKphiyNat81T1tYnIj3lPJm5HxKJ4cxyNhAEetuRAxEHZAUDx5cawWZCaII21lw0P5TBf3PITV4OIXuGLAmHWZCi9Y0lqDXXzpILDFvOZAuePZAZCFhKmamhh0dudROQuy0o7YqwEMbYP0e15K73glwNQ4c1ll9UF02oRiKRev'
 user_preferences = {}
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
 
@@ -60,7 +60,7 @@ def handle_language_selection(message_body, wa_id):
 
 
 def genrate_media_url(media_id):
-    print("Media ID:", media_id)
+    # print("Media ID:", media_id)
     headers = {
         'Authorization': f'Bearer {PAGE_ACCESS_TOKEN}',
     }
@@ -82,17 +82,30 @@ def get_image(media_url):
         file_path = f'image.{file_extension}'
         with open(file_path, 'wb') as f:
             f.write(response.content)
-        print(f"Image downloaded and saved to: {file_path}")
-        # upload_image(response.content)
+        # print(f"Image downloaded and saved to: {file_path}")
+        upload_image(file_path)
     else:
         print(f"Failed to download image. Status code: {response.status_code}")
 
 
 def upload_image(content):
+    files = {'photo': open(content, 'rb')}
+    response = requests.post('http://192.168.29.161:60000/upload', files=files)
+    if response.status_code == 200:
+        # print(response.json())
+        public_url = response.json()['public_url']
+        print(f"Image uploaded successfully. Public URL: {public_url}")
+        extract_data(public_url)
+    else:
+        print(
+            f"Failed to upload image. Status code: {response.status_code}, Error: {response.text}")
+
+
+def extract_data(pub_url):
     response = requests.post(
-        f'/upload', files={'photo': content})
-    print(response.json())
-    pass
+        'http://192.168.29.161:60001/', file_url=request.json.get('file_url'))
+    if response.status_code == 200:
+        print(response.json())
 
 
 def handle_role_selection(message_body, wa_id):
@@ -103,7 +116,6 @@ def handle_role_selection(message_body, wa_id):
         send_msg(
             'Please upload your Aadhar Card and Satbara pdf.' if selected_role == 'Farmer' else
             'Please upload your License number and Aadhar details.', wa_id)
-        # upload_image()
     else:
         send_msg('Sorry, I did not understand your role selection. Please select a valid option: 1. Farmer, 2. Dealer', wa_id)
 
@@ -122,7 +134,7 @@ def webhook():
                 changes = res['entry'][0].get('changes', [])
                 if changes:
                     message_value = changes[0].get('value', {})
-                    print("Message Value:", message_value)
+                    # print("Message Value:", message_value)
                     if 'messages' in message_value:
                         for message in message_value['messages']:
                             if 'image' in message:
@@ -141,8 +153,7 @@ def webhook():
                                         return jsonify({'status': 'error', 'message': 'wa_id not found'})
                                     message_body = message['text']['body'].lower(
                                     )
-                                    print("Text Message Body:", message_body)
-                                    # Add your logic for handling text messages
+                                    # print("Text Message Body:", message_body)
                                     if 'language_selected' not in user_preferences.get(wa_id, {}):
                                         handle_language_selection(
                                             message_body, wa_id)

@@ -1,15 +1,56 @@
 from flask import Flask, request, jsonify
 import requests
 import os
+import logging
 
 
+logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 
 VERIFY_TOKEN = 'KMFAMILY'
 
-PAGE_ACCESS_TOKEN = 'EAAJztZAX6JRwBO4FubSHEC2tRjxNbC6O4eBiM4MD6D5oMpvZC0RGdQsrAWIa0SNKphiyNat81T1tYnIj3lPJm5HxKJ4cxyNhAEetuRAxEHZAUDx5cawWZCaII21lw0P5TBf3PITV4OIXuGLAmHWZCi9Y0lqDXXzpILDFvOZAuePZAZCFhKmamhh0dudROQuy0o7YqwEMbYP0e15K73glwNQ4c1ll9UF02oRiKRev'
+PAGE_ACCESS_TOKEN = 'EAAJztZAX6JRwBO1LkB3ZCSQ5DWfQLUvvUxTRWbSLxf9sPmVoIE4LbsZBZBiTaVsGb6Il05p2X4aOAPa1GqGE44uYJhe6sYRCFXbXxkXs1ScUNxXBz8zU4l74iBjr783VXI3qVdZCne6rJ3n45zReFjAyZAILbXDZBIA3UZCbyolXXiq9kTG4O9BiPwhUGeqg3ugTbtxvZAhQ1h8lqTHjiAj9uptXZCHUyoGVTkPxQZD'
 user_preferences = {}
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
+messages = {
+    'en': {
+        'welcome': 'Welcome! Please select a language: 1. English, 2. Hindi, 3. Marathi.',
+        'invalid_option': 'Sorry, I did not understand your message. Please select a valid option.',
+        'role_selection': 'Please select a role: 1. Farmer, 2. Dealer',
+        'upload_documents_farmer': 'Please upload your Aadhar Card and Satbara pdf for farming.',
+        'upload_documents_dealer': 'Please upload your License number and Aadhar details for dealership.',
+        'documents_uploaded_farmer': 'Thank you for uploading your documents. We will get back to you shortly.',
+        'documents_uploaded_dealer': 'Thank you for uploading your documents. We will get back to you shortly.',
+        'documents_uploaded': 'Thank you for uploading your documents. We will get back to you shortly.',
+        'document_validation_failed': 'Sorry, we could not validate your documents. Please try again.',
+    },
+    'hi': {
+        'welcome': 'स्वागत है! कृपया भाषा का चयन करें: 1. इंग्लिश, 2. हिंदी, 3. मराठी।',
+        'invalid_option': 'क्षमा करें, मैंने आपके संदेश को समझा नहीं। कृपया एक वैध विकल्प चुनें।',
+        'role_selection': 'कृपया एक भूमिका का चयन करें: 1. किसान, 2. डीलर',
+        'upload_documents_farmer': 'कृपया खेती के लिए अपना आधार कार्ड और सतबारा पीडीएफ अपलोड करें।',
+        'upload_documents_dealer': 'कृपया डीलरशिप के लिए अपना लाइसेंस नंबर और आधार विवरण अपलोड करें।',
+        'documents_uploaded_farmer': 'अपने दस्तावेज़ अपलोड करने के लिए धन्यवाद। हम जल्द ही आपसे संपर्क करेंगे।',
+        'documents_uploaded_dealer': 'अपने दस्तावेज़ अपलोड करने के लिए धन्यवाद। हम जल्द ही आपसे संपर्क करेंगे।',
+        'documents_uploaded': 'अपने दस्तावेज़ अपलोड करने के लिए धन्यवाद। हम जल्द ही आपसे संपर्क करेंगे।',
+    },
+    'mr': {
+        'welcome': 'स्वागत आहे! कृपया भाषा निवडा: 1. इंग्लिश, 2. हिंदी, 3. मराठी.',
+        'invalid_option': 'माफ करा, मला तुमचा संदेश समजला नाही. कृपया एक वैध पर्याय निवडा.',
+        'role_selection': 'कृपया एक भूमिका निवडा: 1. शेतकरी, 2. डीलर',
+        'upload_documents_farmer': 'कृपया कृषिक्षेत्रात आपला आधार कार्ड आणि सातबारा पीडीएफ अपलोड करा।',
+        'upload_documents_dealer': 'कृपया व्यापारीक्षेत्रात आपला लायसेंस नंबर आणि आधार विवरण अपलोड करा।',
+        'documents_uploaded_farmer': 'आपले दस्तावेज अपलोड करण्याबद्दल धन्यवाद. आम्ही लवकरच आपल्याशी संपर्क साधू.',
+        'documents_uploaded_dealer': 'आपले दस्तावेज अपलोड करण्याबद्दल धन्यवाद. आम्ही लवकरच आपल्याशी संपर्क साधू.',
+        'documents_uploaded': 'आपले दस्तावेज अपलोड करण्याबद्दल धन्यवाद. आम्ही लवकरच आपल्याशी संपर्क साधू.',
+    },
+}
+
+
+MESSAGE_WELCOME = 'welcome'
+MESSAGE_INVALID_OPTION = 'invalid_option'
+MESSAGE_ROLE_SELECTION = 'role_selection'
+MESSAGE_UPLOAD_DOCUMENTS = 'upload_documents'
 
 
 @app.route('/')
@@ -27,40 +68,39 @@ def validate_user(wa_id):
         return None
 
 
-def send_msg(msg, phn):
+def send_msg(msg_key, wa_id, language):
+    msg = messages.get(language, {}).get(
+        msg_key, 'Invalid message key')
+
     headers = {
         'Authorization': f'Bearer {PAGE_ACCESS_TOKEN}',
     }
     json_data = {
         'messaging_product': 'whatsapp',
-
-        'to': phn,
+        'to': wa_id,
         'type': 'text',
-        "text": {
-            "body": msg
-        }
+        "text": {"body": msg}
     }
     response = requests.post(
         'https://graph.facebook.com/v13.0/135179146337629/messages', headers=headers, json=json_data)
 
+    if response.status_code == 200:
+        logging.info(f'Message sent successfully: {msg_key} to {wa_id}')
+
 
 def handle_language_selection(message_body, wa_id):
     if message_body in ['1', '2', '3']:
-        language_options = ['English', 'Hindi', 'Marathi']
+        language_options = ['en', 'hi', 'mr']
         selected_language = language_options[int(message_body) - 1]
         user_preferences[wa_id] = {'language_selected': selected_language}
-        send_msg(
-            f'You have selected {selected_language}. Now, please select a role: 1. Farmer, 2. Dealer', wa_id)
+        userlang = user_preferences.get(wa_id, {}).get('language_selected')
+        print(user_preferences)
+        send_msg(MESSAGE_ROLE_SELECTION, wa_id, userlang)
     elif message_body == 'hi':
-        send_msg(
-            'Welcome! Please select a language: 1. English, 2. Hindi, 3. Marathi.', wa_id)
-    else:
-        send_msg(
-            'Sorry, I did not understand your message. Please select a valid option.', wa_id)
+        send_msg(MESSAGE_WELCOME, wa_id, 'en')
 
 
 def genrate_media_url(media_id):
-    # print("Media ID:", media_id)
     headers = {
         'Authorization': f'Bearer {PAGE_ACCESS_TOKEN}',
     }
@@ -90,34 +130,52 @@ def get_image(media_url):
 
 def upload_image(content):
     files = {'photo': open(content, 'rb')}
-    response = requests.post('http://192.168.29.161:60000/upload', files=files)
+    response = requests.post(
+        'http://192.168.11.120:60000/upload', files=files)
     if response.status_code == 200:
         # print(response.json())
         public_url = response.json()['public_url']
+        print(public_url)
         print(f"Image uploaded successfully. Public URL: {public_url}")
         extract_data(public_url)
+        print(extract_data(public_url))
     else:
         print(
             f"Failed to upload image. Status code: {response.status_code}, Error: {response.text}")
 
 
 def extract_data(pub_url):
-    response = requests.post(
-        'http://192.168.29.161:60001/', file_url=request.json.get('file_url'))
+    data = {'file_url': pub_url}
+    response = requests.post('http://192.168.11.120:60001/extract', json=data)
     if response.status_code == 200:
-        print(response.json())
+        save_user_data(response.content)
+        return response.json()
+    else:
+        print(
+            f"Failed to extract data. Status code: {response.status_code}, Error: {response.text}")
+        return None
+
+
+def save_user_data(data):
+    print(data)
 
 
 def handle_role_selection(message_body, wa_id):
     if message_body in ['1', '2']:
         roles = ['Farmer', 'Dealer']
         selected_role = roles[int(message_body) - 1]
-        user_preferences[wa_id] = {'role_selected': selected_role}
-        send_msg(
-            'Please upload your Aadhar Card and Satbara pdf.' if selected_role == 'Farmer' else
-            'Please upload your License number and Aadhar details.', wa_id)
+        user_preferences.setdefault(wa_id, {})
+        user_preferences[wa_id]['role_selected'] = selected_role
+        user_preferences[wa_id]['documents_uploaded'] = False
+        selected_language = user_preferences.get(
+            wa_id, {}).get('language_selected', 'en')
+
+        msg_key = MESSAGE_INVALID_OPTION
+        if selected_role in ['Farmer', 'Dealer']:
+            msg_key = MESSAGE_UPLOAD_DOCUMENTS + f'_{selected_role.lower()}'
+        send_msg(msg_key, wa_id, selected_language)
     else:
-        send_msg('Sorry, I did not understand your role selection. Please select a valid option: 1. Farmer, 2. Dealer', wa_id)
+        send_msg(MESSAGE_INVALID_OPTION, wa_id)
 
 
 @app.route('/webhook', methods=['GET', 'POST'])
@@ -135,6 +193,7 @@ def webhook():
                 if changes:
                     message_value = changes[0].get('value', {})
                     # print("Message Value:", message_value)
+
                     if 'messages' in message_value:
                         for message in message_value['messages']:
                             if 'image' in message:
@@ -142,8 +201,8 @@ def webhook():
                                 contacts = message_value.get('contacts', [])
                                 if media_id is not None and contacts:
                                     genrate_media_url(media_id)
-                                    send_msg("Image uploaded successfully ✅\nPlease wait while we process your documents.\nSee you shortly! ⏳",
-                                             contacts[0].get('wa_id'))
+                                    send_msg(MESSAGE_UPLOAD_DOCUMENTS,
+                                             contacts[0].get('wa_id'), 'en')
                             elif 'text' in message:
                                 contacts = message_value.get('contacts', [])
                                 if contacts:
@@ -162,7 +221,6 @@ def webhook():
                                             message_body, wa_id)
                             else:
                                 print("Unsupported message type")
-
         except Exception as e:
             print(f"Error: {e}")
         return jsonify({'status': 'success'})

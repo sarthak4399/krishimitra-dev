@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 VERIFY_TOKEN = 'KMFAMILY'
 
-PAGE_ACCESS_TOKEN = 'EAAJztZAX6JRwBO5eNpXZCtPAJTYvNl2IxxDshgLkHn6sVUvyoDhIdDMr8M6x7OwvvaKKsfTVxmDUOVZC4GiS8PRx0woUyaZAsBZATXJGo0UiMuWPQ1pfZAgITM25xG1ZBp6hX6SWiezvufKMIfK2UIU0e838o8FHWznZC8CuyAxtTorg4OxQh3FKDRwcMaaGwvj9ZBCqCMLbeqUhOttZB2d9IGrUGdLkOi8KUVoFAZD'
+PAGE_ACCESS_TOKEN = 'EAAJztZAX6JRwBO2UtHf8A8WvTC2nb3RBohGtrRCrESZAFXr8qZALm0G9po0ZCEJPscj9SU10y4UkonQbV1cUNIkamkFZB5udKFUckXLCumwGJHhqcb1FTGG4qAKg2PJxlWzZAVUmEfpPWoFtYlasjYJV75zS8U4NeR3GrK4NPQP3j3wgc18rlUyahpi9Xy53pLdVroXZA1EZCcmJbW7Nr6tyBpjLOiJ1LQG59AoZD'
 user_preferences = {}
 
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
@@ -26,9 +26,9 @@ messages = {
         'document_verification': ' Verification sucessfull',
         'document_validation_failed': 'Sorry, we could not validate your documents. Please try again.',
         'select_hangam': 'Select Hangam: 1. Kharip, 2. Rabii',
-        'hangam_selected_kharip': 'You have selected Kharip hangam.',
-        'hangam_selected_rabii': 'You have selected Rabii hangam.',
-        'Main_menu_farmer': '1. Crop Prediction  \n 2. Suggestion of Government Schemes \n 3. Nearest APMC \n 4. Industry Recommendation',
+        'hangam_selected_kharip': 'You have selected Kharip hangam\n Press 1 for the menu',
+        'hangam_selected_rabii': 'You have selected Rabii hangam\n Press 1 for the menu',
+        'Main_menu_farmer': '1. Crop Prediction  \n 2. Suggestion of Government Schemes \n 3. Nearest APMC \n 4. Industry Recommendation \n 5. Connect FPO and Industry',
         'Main_menu_dealer': '1. Probable Profit \n 2. Industry Recommendation',
 
 
@@ -200,6 +200,7 @@ def get_image(media_url):
             f.write(response.content)
         # print(f"Image downloaded and saved to: {file_path}")
         upload_image(file_path)
+
     else:
         print(f"Failed to download image. Status code: {response.status_code}")
 
@@ -207,7 +208,7 @@ def get_image(media_url):
 def upload_image(content):
     files = {'photo': open(content, 'rb')}
     response = requests.post(
-        'http://192.168.121.120:60000', files=files)
+        'http://172.30.69.161:60000/upload', files=files)
     if response.status_code == 200:
         # print(response.json())
         public_url = response.json()['public_url']
@@ -251,6 +252,7 @@ def handle_role_selection(message_body, wa_id):
 
 
 def handle_hangam_selection(message_body, wa_id):
+
     if message_body in ['1', '2']:
         hangam_options = ['kharip', 'rabii']
         selected_hangam = hangam_options[int(message_body) - 1]
@@ -262,20 +264,22 @@ def handle_hangam_selection(message_body, wa_id):
         send_msg(msg_key, wa_id, selected_language)
         selected_role = user_preferences.get(wa_id, {}).get('role_selected')
         logging.info(selected_role)
-
         if selected_role == 'Farmer':
-            msg_key = MESSAGE_MAIN_MENU_FARMER
-            send_msg(msg_key, wa_id, selected_language)
-            main_menu(message_body, wa_id)
-
+            send_msg(MESSAGE_MAIN_MENU_FARMER, wa_id, selected_language)
         elif selected_role == 'Dealer':
-            msg_key = MESSAGE_MAIN_MENU_DEALER
-            send_msg(msg_key, wa_id, selected_language)
+            send_msg(MESSAGE_MAIN_MENU_DEALER, wa_id, selected_language)
+        else:
+            handle_hangam_selection(message_body, wa_id)
+    else:
+        send_msg(MESSAGE_INVALID_OPTION, wa_id, 'en')
 
 
 def crop_prdection(wa_id, message_body):
     logging.info("crop prediction ")
-    print(message_body)
+    userlang = user_preferences.get(wa_id, {}).get('language_selected')
+    send_msg(MESSAGE_ENTER_VALUES, wa_id, userlang)
+
+    # print(message_body)
 
 
 def government_schemes():
@@ -298,21 +302,31 @@ def industry_recommendation():
 
 
 def main_menu(message_body, wa_id):
-
     if message_body in ['1', '2', '3', '4']:
-        main_menu_options = ['Crop Prediction', 'Suggestion of Government Schemes',
-                             'Nearest APMC', 'Industry Recommendation']
-        user_lang = user_preferences.get(wa_id, {}).get('language_selected')
-
-        print(message_body)
-        selected_main_menu = main_menu_options[int(message_body) - 1]
-        logging.info(selected_main_menu)
-
-        if message_body == '1':
-            crop_prdection(wa_id, message_body)
-
-        elif message_body == '2':
-            government_schemes()
+        selected_language = user_preferences.get(
+            wa_id, {}).get('language_selected', 'en')
+        options = ['Crop Prediction', 'Suggestion of Government Schemes',
+                   'Nearest APMC', 'Industry Recommendation', 'Connect FPO and Industry']
+        selected_option = options[int(message_body) - 1]
+        user_preferences[wa_id]['selected_option'] = selected_option
+        selected_role = user_preferences.get(wa_id, {}).get('role_selected')
+        logging.info(selected_role)
+        if selected_role == 'Farmer':
+            if selected_option == 'Crop Prediction':
+                crop_prdection(wa_id, message_body)
+            elif selected_option == 'Suggestion of Government Schemes':
+                government_schemes()
+            elif selected_option == 'Nearest APMC':
+                nearest_apmc()
+            elif selected_option == 'Industry Recommendation':
+                industry_recommendation()
+            elif selected_option == 'Connect FPO and Industry':
+                return None
+        # elif selected_role == 'Dealer':
+        #     if main_menu_selected == '1':
+        #         probable_profit()
+        #     elif main_menu_selected == '2':
+        #         industry_recommendation()
 
 
 @app.route('/webhook', methods=['GET', 'POST'])
@@ -356,16 +370,18 @@ def webhook():
                                         return jsonify({'status': 'error', 'message': 'wa_id not found'})
                                     message_body = message['text']['body'].lower(
                                     )
-                                    print(message_body)
-                                    if 'language_selected' not in user_preferences.get(wa_id, {}):
-                                        handle_language_selection(
-                                            message_body, wa_id)
-                                    elif 'role_selected' not in user_preferences.get(wa_id, {}):
-                                        handle_role_selection(
-                                            message_body, wa_id)
-                                    elif 'hangam_selected' not in user_preferences.get(wa_id, {}):
-                                        handle_hangam_selection(
-                                            message_body, wa_id)
+                                    # ###print(message_body)
+                                if 'language_selected' not in user_preferences.get(wa_id, {}):
+                                    handle_language_selection(
+                                        message_body, wa_id)
+                                elif 'role_selected' not in user_preferences.get(wa_id, {}):
+                                    handle_role_selection(
+                                        message_body, wa_id)
+                                elif 'hangam_selected' not in user_preferences.get(wa_id, {}):
+                                    handle_hangam_selection(
+                                        message_body, wa_id)
+                                elif 'main_menu_selected' not in user_preferences.get(wa_id, {}):
+                                    main_menu(message_body, wa_id)
 
                             else:
                                 print("Unsupported message type")

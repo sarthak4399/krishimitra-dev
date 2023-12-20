@@ -1,0 +1,10 @@
+DOCKER BUILD:
+  'docker build -t <image_name> .'
+DOCKER RUN:
+  'docker run -p <host_port>:<container_port> -d <image_name>'
+DOCKER STOP:  
+  'docker stop <container_id>'
+DOCKER REMOVE:
+  'docker rm <container_id>'
+DOCKER REMOVE ALL:
+  'docker rm $(docker ps -a -q)'
